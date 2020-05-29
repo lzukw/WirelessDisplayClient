@@ -1,0 +1,79 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:WirelessDisplayClient.ViewModels;assembly=WirelessDisplayClient"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:views="clr-namespace:WirelessDisplayClient.Views"
+        mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="500"
+        Width="600" Height="455"
+        x:Class="WirelessDisplayClient.Views.MainWindow"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="WirelessDisplay - Client">
+
+  <Window.Styles>
+    <Style Selector="TextBlock">
+      <Setter Property="FontSize" Value="14"/>
+    </Style>
+  </Window.Styles>
+
+  <StackPanel>
+
+    <Border  Margin="5" CornerRadius="6" BorderBrush="Gray" BorderThickness="1">
+      <StackPanel Orientation="Horizontal">
+        <TextBlock VerticalAlignment="Center" Margin="5" >IP-Address of projecting-computer:</TextBlock> 
+        <TextBox Text="{Binding IpAddress}" VerticalAlignment="Center" Margin="5" Width="100" Watermark="192.168.x.y" IsEnabled="{Binding !ConnectionEstablished}"/>
+        <Button Command="{Binding ButtonConnect_Click}" VerticalAlignment="Center" Margin="5" IsEnabled="{Binding !ConnectionEstablished}">Connect</Button>
+        <Button Command="{Binding ButtonDisconnect_Click}"  VerticalAlignment="Center" Margin="5" IsEnabled="{Binding ConnectionEstablished}">Disconnect</Button>
+      </StackPanel>
+    </Border>
+
+    <Border IsEnabled="{Binding ConnectionEstablished}" Margin="5" CornerRadius="6" BorderBrush="Gray" BorderThickness="1">
+      <StackPanel>
+        <TextBlock VerticalAlignment="Center" Margin="5" FontWeight="Bold">Screen resolutions:</TextBlock>
+        <StackPanel Orientation="Horizontal" Margin="10 0 0 0">
+          <TextBlock >Initial screen resolution: </TextBlock>
+          <TextBlock Margin="10 0 0 0" Text="{Binding InitialRemoteScreenResolution}"/>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Margin="10 0 10 0">
+          <TextBlock>Current screen resolution: </TextBlock>
+          <TextBlock Margin="10 0 0 0"  Text="{Binding CurrentRemoteScreenResolution}"/>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Margin="10 10 10 10">
+          <TextBlock>Select screen resolution: </TextBlock>
+          <ComboBox SelectedIndex="{Binding SelectedRemoteScreenResolutionIndex}" Items="{Binding AvailableRemoteScreenResolutions}" Margin="10 0 0 0" MinWidth="100">
+          </ComboBox> 
+        </StackPanel>
+      </StackPanel>
+    </Border>
+
+    <Border IsEnabled="{Binding ConnectionEstablished}" Margin="5" CornerRadius="6" BorderBrush="Gray" BorderThickness="1">
+      <StackPanel>
+        <TextBlock VerticalAlignment="Center" Margin="5" FontWeight="Bold">Streaming:</TextBlock>
+        <StackPanel Orientation="Horizontal" Margin="10 10 10 10">
+          <TextBlock >Select streaming method: </TextBlock>
+          <RadioButton IsChecked="{Binding VncSelected}" Margin="10 0 10 0">VNC</RadioButton>
+          <RadioButton IsChecked="{Binding FFmpegSelected}" Margin="10 0 10 0">FFmpeg</RadioButton>
+        </StackPanel>
+        <TextBlock Margin="10 5 5 5" TextWrapping="Wrap">Select Port-Number for streaming (VNC in reverse-connection or ffmpeg):</TextBlock>
+        <StackPanel Orientation="Horizontal" Margin="10 10 10 10">
+          <TextBlock VerticalAlignment="Center">Port-Number: </TextBlock>
+          <NumericUpDown Value="{Binding PortNo}" VerticalAlignment="Center" Margin="10 0 0 0" Width="100" Minimum="1024" Maximum="65535"/>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Margin="0">
+          <Button Command="{Binding ButtonStartStreaming_click}" IsEnabled="{Binding !StreamStarted}" Margin="10">Start Streaming</Button>
+          <Button Command="{Binding ButtonStopStreaming_click}" IsEnabled="{Binding StreamStarted}" Margin="10">Stop Streaming</Button>
+        </StackPanel>
+      </StackPanel>
+    </Border>
+
+    <Border  Margin="5" CornerRadius="6" BorderBrush="Gray" BorderThickness="1">
+      <StackPanel>
+       <TextBlock VerticalAlignment="Center" Margin="5" FontWeight="Bold">Status:</TextBlock>
+       <ScrollViewer Height="40">
+         <TextBlock Text="{Binding StatusText}" Margin="10 0 0 0" FontSize="12" TextWrapping="Wrap" />
+        </ScrollViewer>
+      </StackPanel>
+    </Border>
+  </StackPanel>
+
+</Window>
