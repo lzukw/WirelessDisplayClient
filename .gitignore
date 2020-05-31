@@ -6,6 +6,7 @@ WirelessDisplayClientGUI_executable
 
 ## Ignore Contents of ThirdParty
 ThirdParty/*
+!ThirdParty/README.md
 
 ########################################################
 
