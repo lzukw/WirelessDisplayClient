@@ -3,12 +3,18 @@ using System.Collections.Generic;
 using WirelessDisplayClient.Services;
 using ReactiveUI;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Threading.Tasks;
 
 namespace WirelessDisplayClient.ViewModels
 {
     public class MainWindowViewModel : ReactiveObject
     {
+        ///////////////////////////////////////////////////////////////////////
+        // Constructor and private Fields
+        //////////////////////////////////////////////////////////////////////
+        #region
+
         // Summary:
         //     Constructor.
         // Parameters:
@@ -17,17 +23,24 @@ namespace WirelessDisplayClient.ViewModels
         //     with the REST-API, setting the remote screen-resolution, and
         //     starting/stopping the local VNC-Server or FFmpeg.
         //     The serviceProvider is "injected" to the constructor.
-        public MainWindowViewModel( IWDCServciceProvider serviceProvider)
+        public MainWindowViewModel( NameValueCollection config,
+                                    IWDCServciceProvider serviceProvider )
         {
             _wdcServiceProvider = serviceProvider;
+            _desiredWidth = Convert.ToInt32(config["Preferred_Screen_Width"]);
         }
 
-        // Here the serviceProvider-instance passed to the constructor is stored.
-        private IWDCServciceProvider _wdcServiceProvider;
+        // Here the information passed to the constructor is stored
+        private readonly IWDCServciceProvider _wdcServiceProvider;
+        private readonly int _desiredWidth;
+
+
+        #endregion
 
         /////////////////////////////////////////////////////////////////////////////
         // Boolean properties for enabling and disabling controls of the MainWindow
         /////////////////////////////////////////////////////////////////////////////
+        #region 
 
         // Backup-field for property ConnectionEstablished.
         private bool _connectionEstablished = false; 
@@ -54,10 +67,12 @@ namespace WirelessDisplayClient.ViewModels
             set => this.RaiseAndSetIfChanged(ref _streamStarted, value);
         }
 
+        #endregion
 
         ///////////////////////////////////////////////////////////
         // Value-properties bound to controls 
         /////////////////////////////////////////////////////////// 
+        #region
 
         //
         // Summary:
@@ -71,7 +86,27 @@ namespace WirelessDisplayClient.ViewModels
 
         //
         // Summary:
-        //     Bound to TextBlock containing initial screen-resolution
+        //     Bound to TextBlock containing initial local screen-resolution
+        private string _initialLocalScreenResolution="";
+        public string InitialLocalScreenResolution
+        {
+            get => _initialLocalScreenResolution;
+            set => this.RaiseAndSetIfChanged(ref _initialLocalScreenResolution, value);
+        }
+
+        //
+        // Summary:
+        //     Bound to TextBlock containing current local screen-resolution
+        private string _currentLocalScreenResolution="";
+        public string CurrentLocalScreenResolution
+        {
+            get => _currentLocalScreenResolution;
+            set => this.RaiseAndSetIfChanged(ref _currentLocalScreenResolution, value);
+        }
+
+        //
+        // Summary:
+        //     Bound to TextBlock containing initial remote screen-resolution
         private string _initialRemoteScreenResolution="";
         public string InitialRemoteScreenResolution
         {
@@ -81,12 +116,29 @@ namespace WirelessDisplayClient.ViewModels
 
         //
         // Summary:
-        //     Bound to TextBlock containing current screen-resolution
+        //     Bound to TextBlock containing current remote screen-resolution
         private string _currentRemoteScreenResolution="";
         public string CurrentRemoteScreenResolution
         {
             get => _currentRemoteScreenResolution;
             set => this.RaiseAndSetIfChanged(ref _currentRemoteScreenResolution, value);
+        }
+
+        //
+        // Summary:
+        //     Bound to items of the ComboBox with availabe screen-resolutions on
+        //     the local computer.
+        public ObservableCollection<string> AvailableLocalScreenResolutions { get; } = new ObservableCollection<string>();
+
+        //
+        // Summary:
+        //     Bound to the index of the selected item in the ComboBox with availabe 
+        //     screen-resolutions on the local computer (-1 if no item is selected).
+        private int _selectedLocalScreenResolutionIndex = -1;
+        public int SelectedLocalScreenResolutionIndex
+        {
+            get => _selectedLocalScreenResolutionIndex;
+            set => this.RaiseAndSetIfChanged(ref _selectedLocalScreenResolutionIndex, value);
         }
 
         //
@@ -99,7 +151,7 @@ namespace WirelessDisplayClient.ViewModels
         // Summary:
         //     Bound to the index of the selected item in the ComboBox with availabe 
         //     screen-resolutions on the remote computer (-1 if no item is selected).
-        private int _selectedRemoteScreenResolutionIndex;
+        private int _selectedRemoteScreenResolutionIndex = -1;
         public int SelectedRemoteScreenResolutionIndex
         {
             get => _selectedRemoteScreenResolutionIndex;
@@ -146,10 +198,12 @@ namespace WirelessDisplayClient.ViewModels
             set => this.RaiseAndSetIfChanged(ref _statusText, value);
         }
 
+        #endregion
  
         ///////////////////////////////////////////////////////////
         // React on Button-Clicks and Window-Close-Button. 
         ///////////////////////////////////////////////////////////
+        #region
 
         //
         // Summary: 
@@ -175,23 +229,47 @@ namespace WirelessDisplayClient.ViewModels
                 return; // bail out
             }
 
-            // Get the initial screen-resolution of the remote computer.
+            // Get the initial screen-resolution of the local computer.
             try
             {
-                InitialRemoteScreenResolution = await 
-                        _wdcServiceProvider.GetInitialScreenResolution();
+                InitialLocalScreenResolution = 
+                        _wdcServiceProvider.GetInitialLocalScreenResolution();
             }       
             catch (WDCServiceException e)
             {
                 StatusText += $"{e.Message}\n";
-                StatusText += "WARNING: Could not get initial screen-resolution! Connection Lost?\n";
+                StatusText += "ERROR: Could not get initial local screen-resolution! Scripting Error?\n";
+            }
+
+            // Get the initial screen-resolution of the remote computer.
+            try
+            {
+                InitialRemoteScreenResolution = await 
+                        _wdcServiceProvider.GetInitialRemoteScreenResolution();
+            }       
+            catch (WDCServiceException e)
+            {
+                StatusText += $"{e.Message}\n";
+                StatusText += "WARNING: Could not get initial remote screen-resolution! Connection Lost?\n";
+            }
+
+            // Get the current screen-resolution of the local computer.
+            try
+            {
+                CurrentLocalScreenResolution =  
+                        _wdcServiceProvider.GetCurrentLocalScreenResolution();
+            }
+            catch (WDCServiceException e)
+            {
+                StatusText += $"{e.Message}\n";
+                StatusText += "ERROR: Could not get local current screen-resolution! Scripting Error?\n";
             }
 
             // Get the current screen-resolution of the remote computer.
             try
             {
                 CurrentRemoteScreenResolution = await 
-                        _wdcServiceProvider.GetCurrentScreenResolution();
+                        _wdcServiceProvider.GetCurrentRemoteScreenResolution();
             }
             catch (WDCServiceException e)
             {
@@ -199,7 +277,29 @@ namespace WirelessDisplayClient.ViewModels
                 StatusText += "WARNING: Could not get current screen-resolution! Connection Lost?\n";
             }
 
-            // Fill the ComboBox-items with the available screen-resolutions
+            // Fill the ComboBox-items with the available local screen-resolutions
+            try 
+            {
+                List<string> resolutions =  
+                        _wdcServiceProvider.GetAvailableLocalScreenResolutions();
+                SelectedLocalScreenResolutionIndex = -1;
+                AvailableLocalScreenResolutions.Clear();
+                foreach (string res in resolutions)
+                {
+                    AvailableLocalScreenResolutions.Add(res);
+                }
+            }
+            catch (WDCServiceException e)
+            {
+                StatusText += $"{e.Message}\n";
+                StatusText += "ERROR: Could not get available local screen-resolutions! Scripting Error?\n";
+            }
+
+            // Pre-select moderate screen-resolution for remote computer and streaming
+            SelectedLocalScreenResolutionIndex = 
+                        indexOfNearestResolution(AvailableLocalScreenResolutions);
+
+            // Fill the ComboBox-items with the available remote screen-resolutions
             try 
             {
                 List<string> resolutions = await 
@@ -214,12 +314,12 @@ namespace WirelessDisplayClient.ViewModels
             catch (WDCServiceException e)
             {
                 StatusText += $"{e.Message}\n";
-                StatusText += "WARNING: Could not get available screen-resolutions! Connection Lost?\n";
+                StatusText += "WARNING: Could not get available remote screen-resolutions! Connection Lost?\n";
             }
 
             // Pre-select moderate screen-resolution for remote computer and streaming
-            SelectedRemoteScreenResolutionIndex = indexOfNearestResolution(
-                                        AvailableRemoteScreenResolutions, 1024);
+            SelectedRemoteScreenResolutionIndex = 
+                        indexOfNearestResolution(AvailableRemoteScreenResolutions);
 
             // Finally switch the Window-State:
             ConnectionEstablished = true;
@@ -231,19 +331,44 @@ namespace WirelessDisplayClient.ViewModels
         //     React on Start-Streaming-Button
         public async Task ButtonStartStreaming_click()
         {  
-            // First set Screen Resolution:
-            string receiverResolution = 
-                    AvailableRemoteScreenResolutions[SelectedRemoteScreenResolutionIndex];
-            try
+            // First set local Screen Resolution:
+            string localResolution = null;
+            if (AvailableLocalScreenResolutions.Count > 0 && 
+                            SelectedLocalScreenResolutionIndex != -1 )
             {
-                await _wdcServiceProvider.SetRemoteScreenResolution(receiverResolution);
-                StatusText += $"Successfully set screen-resolution to {receiverResolution}\n";
-                CurrentRemoteScreenResolution = receiverResolution;
+                localResolution = 
+                        AvailableLocalScreenResolutions[SelectedLocalScreenResolutionIndex];
+                try
+                {
+                    _wdcServiceProvider.SetLocalScreenResolution(localResolution);
+                    StatusText += $"Successfully set local screen-resolution to {localResolution}\n";
+                    CurrentLocalScreenResolution = localResolution;
+                }
+                catch (WDCServiceException e)
+                {
+                    StatusText += $"{e.Message}\n";
+                    StatusText += "ERROR: Could not set local screen-resolution. Scripting error?";
+                }
             }
-            catch (WDCServiceException e)
+
+            // Then set remote Screen Resolution:
+            string remoteResolution = null;
+            if (AvailableRemoteScreenResolutions.Count > 0 && 
+                            SelectedRemoteScreenResolutionIndex != -1 )
             {
-                StatusText += $"{e.Message}\n";
-                StatusText += "WARNING: Could not set remote screen-resolution. Connection lost?";
+                remoteResolution = 
+                        AvailableRemoteScreenResolutions[SelectedRemoteScreenResolutionIndex];
+                try
+                {
+                    await _wdcServiceProvider.SetRemoteScreenResolution(remoteResolution);
+                    StatusText += $"Successfully set remote screen-resolution to {remoteResolution}\n";
+                    CurrentRemoteScreenResolution = remoteResolution;
+                }
+                catch (WDCServiceException e)
+                {
+                    StatusText += $"{e.Message}\n";
+                    StatusText += "WARNING: Could not set remote screen-resolution. Connection lost?";
+                }
             }
 
             // Then stop eventually still ongoing streaming
@@ -254,56 +379,44 @@ namespace WirelessDisplayClient.ViewModels
             catch (WDCServiceException e)
             {
                 StatusText += $"{e.Message}\n";
-                StatusText += "WARNING: Could not stop eventually still running streaming.\n"; 
+                StatusText += "ERROR: Could not stop eventually still running streaming.\n"; 
             }
 
             // Check if VNC or FFmpeg is desired:
+            StreamType streamType;
             if (VncSelected)
             {
-                // start VNC streaming
-                // No typo: The resolution used for the stream is set equal to the
-                // the resolution of the receiver. 
-                try {
-                    await _wdcServiceProvider.StartVNCStreaming(
-                                     PortNo,
-                                     senderResolution : null,
-                                     streamResolution : receiverResolution,
-                                     receiverResolution : receiverResolution);
-                    StatusText += $"Successfully started VNC-connection to {_wdcServiceProvider.LastKnownRemoteIP}:{PortNo} ... stream-resolution={receiverResolution}\n";
-                }
-                catch (Exception e)
-                {
-                    StatusText += $"{e.Message}\n";
-                    StatusText += $"ERROR: Could not start VNC-Streaming to {_wdcServiceProvider.LastKnownRemoteIP}:{PortNo}\n";
-                    return; // bail out
-                }
+                streamType = StreamType.VNC;
             }
             else if (FFmpegSelected)
             {
-                //start FFmpeg streaming
-                // No typo: The resolution used for the stream is set equal to the
-                // the resolution of the receiver. 
-                try {
-                    await _wdcServiceProvider.StartFFmpegStreaming(
-                                     PortNo,
-                                     senderResolution : null,
-                                     streamResolution : receiverResolution,
-                                     receiverResolution : receiverResolution);
-                    StatusText += $"Successfully started FFmpeg-streaming to {_wdcServiceProvider.LastKnownRemoteIP}:{PortNo} ... stream-resolution={receiverResolution}\n";
-                }
-                catch (Exception e)
-                {
-                    StatusText += $"{e.Message}\n";
-                    StatusText += $"ERROR: Could not start FFmpeg-streaming to {_wdcServiceProvider.LastKnownRemoteIP}:{PortNo}\n";
-                    return; // bail out
-                }
-              }
+                 streamType = StreamType.FFmpeg;   
+            }
             else
             {
                 throw new Exception("BUG: Neither VNC nor FFmpeg selected. This should not be possible.");
-            }            
+            }  
 
-            // Last, preselect initial screen-resolution
+            // start selected streaming
+            try {
+                await _wdcServiceProvider.StartStreaming( streamType,
+                                    PortNo,
+                                    senderResolution : localResolution,
+                                    receiverResolution : remoteResolution);
+                StatusText += $"Successfully started {streamType.ToString()}-streaming to {_wdcServiceProvider.LastKnownRemoteIP}:{PortNo}\n";
+            }
+            catch (Exception e)
+            {
+                StatusText += $"{e.Message}\n";
+                StatusText += $"ERROR: Could not start {streamType.ToString()}-streaming to {_wdcServiceProvider.LastKnownRemoteIP}:{PortNo}\n";
+                return; // bail out
+            }       
+
+            // Last, preselect initial screen-resolutions
+            SelectedLocalScreenResolutionIndex = 
+                    indexOfResolution( AvailableLocalScreenResolutions, 
+                                       InitialLocalScreenResolution);
+
             SelectedRemoteScreenResolutionIndex = 
                     indexOfResolution( AvailableRemoteScreenResolutions, 
                                        InitialRemoteScreenResolution);
@@ -332,23 +445,47 @@ namespace WirelessDisplayClient.ViewModels
                 return;
             }
 
-            // Then set Screen Resolution:
-            string receiverResolution = 
-                    AvailableRemoteScreenResolutions[SelectedRemoteScreenResolutionIndex];
-            try {
-                await _wdcServiceProvider.SetRemoteScreenResolution(receiverResolution);
-                StatusText += $"Successfully set screen-resolution to {receiverResolution}\n";
-                CurrentRemoteScreenResolution = receiverResolution;
-            }
-            catch (WDCServiceException e)
+            // Then set local Screen Resolution:
+            if (AvailableLocalScreenResolutions.Count > 0  && 
+                            SelectedLocalScreenResolutionIndex != -1)
             {
-                StatusText += $"{e.Message}\n";
-                StatusText += $"WARNING: Could not set screen-resolution to {receiverResolution}\n";
+                string localResolution = 
+                        AvailableLocalScreenResolutions[SelectedLocalScreenResolutionIndex];
+                try {
+                    _wdcServiceProvider.SetLocalScreenResolution(localResolution);
+                    StatusText += $"Successfully set local screen-resolution to {localResolution}\n";
+                    CurrentLocalScreenResolution = localResolution;
+                }
+                catch (WDCServiceException e)
+                {
+                    StatusText += $"{e.Message}\n";
+                    StatusText += $"WARNING: Could not set local screen-resolution to {localResolution}\n";
+                }
+            }
+            // Then set remote Screen Resolution:
+            if (AvailableRemoteScreenResolutions.Count > 0  &&
+                            SelectedRemoteScreenResolutionIndex != -1 )
+            {
+                string remoteResolution = 
+                        AvailableRemoteScreenResolutions[SelectedRemoteScreenResolutionIndex];
+                try {
+                    await _wdcServiceProvider.SetRemoteScreenResolution(remoteResolution);
+                    StatusText += $"Successfully set remote screen-resolution to {remoteResolution}\n";
+                    CurrentRemoteScreenResolution = remoteResolution;
+                }
+                catch (WDCServiceException e)
+                {
+                    StatusText += $"{e.Message}\n";
+                    StatusText += $"WARNING: Could not set remote screen-resolution to {remoteResolution}\n";
+                }
             }
 
-            // Finally preselect moderate screen-resolution, for next streaming
+            // Finally preselect moderate screen-resolutions, for next streaming
+            SelectedLocalScreenResolutionIndex = 
+                    indexOfNearestResolution( AvailableLocalScreenResolutions );
+
             SelectedRemoteScreenResolutionIndex = 
-                    indexOfNearestResolution( AvailableRemoteScreenResolutions, 1024);
+                    indexOfNearestResolution( AvailableRemoteScreenResolutions );
 
             // and switch the window-state
             ConnectionEstablished = true;
@@ -360,15 +497,13 @@ namespace WirelessDisplayClient.ViewModels
         //     React on the Disconnect-Button
         public async Task ButtonDisconnect_Click()
         {
-            // Normally the user first should click the "Stop-Streaming"-
-            // Button, and then the "Disconnect"-Button. For a better
-            // user-experience, allow the user just click "Disconnect" directly 
-            // and perform the "Stop-Sreaming"-Click by program:
+            // First shut down streaming, if it is started.
             if (StreamStarted)
             {
                 await ButtonStopStreaming_click();
             }
 
+            // Finally switch the window-state
             ConnectionEstablished = false;
             StreamStarted = false;
             StatusText += "Disconnected.\n";
@@ -386,18 +521,36 @@ namespace WirelessDisplayClient.ViewModels
                 await ButtonDisconnect_Click();
             }
         }
- 
 
+        #endregion
+ 
         ///////////////////////////////////////////////////////////
         // Helper methods
         ///////////////////////////////////////////////////////////
+        #region
 
-        // Searches all screen-resolutions in the ComboBox (AvailableScreenResolutions)
-        // and selects the one, whose width is nearest to 1024 pixels. The selection
-        // is simply done by modifying SelectedScreenResolutionIndex.
+        //
+        // Summary:
+        //     Searches all provided screen-resolutions, and returns the index of 
+        //     the one, whose width is nearest to desiredWidth. 
+        // Parameters:
+        //   resolutions:
+        //     The list of screen-resolutions to search.
+        //   desiredWidth:
+        //     The screen-resolution to find, or the nearest available one. If no
+        //     value is passed to this field, the desiredWidth is taken from the
+        //     value passed via config to the constructor of this class.
+        //   Returns:
+        //     The index of the found resolution.
         private int indexOfNearestResolution( IEnumerable<string> resolutions,
-                                              int desiredWidth = 1024)
+                                              int desiredWidth = -1)
         {
+            // Replace default value
+            if (desiredWidth == -1)
+            {
+                desiredWidth = _desiredWidth;
+            }
+
             int index = 0;
             int indexToSelect=-1; // worst-case: select none
             int smallestDeviation = Int32.MaxValue;
@@ -416,8 +569,18 @@ namespace WirelessDisplayClient.ViewModels
             return indexToSelect;
         }
 
-        // Searches all screen-resolutions in the ComboBox (AvailableScreenResolutions)
-        // and selects the one that is given by resolutionToSelect.
+        //
+        // Summary:
+        //     Searches all provided screen-resolutions and returns the index
+        //     the one that is given by resolutionToSelect.
+        // Parameters:
+        //   resolutions:
+        //     The list of screen-resolutions to search.
+        //   resolutionToSelect:
+        //     The screen-resolution to find
+        //   Returns:
+        //     The index of the found resolution. If resolutionToSelect was
+        //     not found, -1 is returned.
         private int indexOfResolution(IEnumerable<string> resolutions,
                                        string resolutionToSelect)
         {
@@ -434,6 +597,8 @@ namespace WirelessDisplayClient.ViewModels
 
             return -1; // not found
         }
+
+        #endregion
         
     }
 }

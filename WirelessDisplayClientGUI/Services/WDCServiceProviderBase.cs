@@ -1,3 +1,4 @@
+/*
 using System;
 using System.Net;
 using System.Net.Http;
@@ -120,22 +121,18 @@ namespace WirelessDisplayClient.Services
         }
 
 
-        public abstract Task StartVNCStreaming( UInt16 portNo,
+        public abstract Task StartStreaming( StreamType typeOfStream,
+                                     UInt16 portNo,
                                      string senderResolution = null,
                                      string streamResolution = null, 
                                      string receiverResolution = null );
 
-        public abstract Task StartFFmpegStreaming( UInt16 portNo,
-                                     string senderResolution = null,
-                                     string streamResolution = null, 
-                                     string receiverResolution = null );            
-
         public abstract Task StopStreaming();  
+
 
         ///////////////////////////////////////////////////////////////
         // Helper functions needed by child-classes
         ///////////////////////////////////////////////////////////////
-
 
         // 
         // Summary:
@@ -146,79 +143,78 @@ namespace WirelessDisplayClient.Services
         // Exceptions:
         //   T:SWirelessDisplayClient.Services.WDCServiceException:
         //     The request was not successfull, or LastKnownRemoteIP isn't valid anymore.
-        protected async Task StartRemoteVNCViewerReverse(UInt16 portNo)
+        protected async Task StartRemoteStreamingSink( StreamType typeOfStream, UInt16 portNo)
         {
-            // If WDCServiceException occurs, just let it handle the caller.
-            await performPOST<UInt16>("api/StreamPlayer/StartVncViewerReverse", portNo);
-
-            bool started = false;
-
-            // We have to do clean-up, if an exception occurs, so use finally
-            try
+            switch (typeOfStream)
             {
-                started = await performGET<bool>("api/StreamPlayer/VncViewerStarted");
-            }
-            finally
-            {
-                // If an exception occured, or the remote program could not be started
-                // successfully: Stop remote player again and throw exception. 
-                if (! started)
+                case StreamType.VNC:
                 {
+                    // If WDCServiceException occurs, just let it handle the caller.
+                    await performPOST<UInt16>("api/StreamPlayer/StartVncViewerReverse", portNo);
+
+                    bool started = false;
+
+                    // We have to do clean-up, if an exception occurs, so use finally
                     try
                     {
-                        await StopRemoteStreamPlayers();
+                        started = await performGET<bool>("api/StreamPlayer/VncViewerStarted");
                     }
                     finally
                     {
-                        throw new WDCServiceException($"ERROR: Could not start remote VNC-viewer listening on {_lastKnownRemoteIp}:{portNo}");
+                        // If an exception occured, or the remote program could not be started
+                        // successfully: Stop remote player again and throw exception. 
+                        if (! started)
+                        {
+                            try
+                            {
+                                await StopRemoteStreamPlayers();
+                            }
+                            finally
+                            {
+                                throw new WDCServiceException($"ERROR: Could not start remote VNC-viewer listening on {_lastKnownRemoteIp}:{portNo}");
+                            }
+                        }   
                     }
-                }   
+                    break;
+                }
+
+                case StreamType.FFmpeg:
+                {
+                    // If WDCServiceException occurs, just let it handle the caller.
+                    await performPOST<UInt16>("api/StreamPlayer/StartFfplay", portNo);
+
+                    bool started = false;
+
+                    // We have to do clean-up, if an exception occurs, so use finally
+                    try
+                    {
+                        started = await performGET<bool>("api/StreamPlayer/FfplayStarted");
+                    }
+                    finally
+                    {
+                        // If an exception occured, or the remote program could not be started
+                        // successfully: Stop remote player again and throw exception. 
+                        if (! started)
+                        {
+                            try
+                            {
+                                await StopRemoteStreamPlayers();
+                            }
+                            finally
+                            {
+                                throw new WDCServiceException($"ERROR: Could not start remote FFplay listening on {_lastKnownRemoteIp}:{portNo}");
+                            }
+                        }      
+                    }
+                    break;
+                }
             }
         }
 
 
         // 
         // Summary:
-        //     Starts ffplay as streaming-sinkin on the remote computer.
-        // Parameters:
-        //   portNo:
-        //     The port-numer, the ffplay listens on.
-        // Exceptions:
-        //   T:SWirelessDisplayClient.Services.WDCServiceException:
-        //     The request was not successfull, or LastKnownRemoteIP isn't valid anymore.
-        protected async Task StartRemoteFFplay(UInt16 portNo)
-        {
-            // If WDCServiceException occurs, just let it handle the caller.
-            await performPOST<UInt16>("api/StreamPlayer/StartFfplay", portNo);
-
-            bool started = false;
-
-            // We have to do clean-up, if an exception occurs, so use finally
-            try
-            {
-                started = await performGET<bool>("api/StreamPlayer/FfplayStarted");
-            }
-            finally
-            {
-                // If an exception occured, or the remote program could not be started
-                // successfully: Stop remote player again and throw exception. 
-                if (! started)
-                {
-                    try
-                    {
-                        await StopRemoteStreamPlayers();
-                    }
-                    finally
-                    {
-                        throw new WDCServiceException($"ERROR: Could not start remote FFplay listening on {_lastKnownRemoteIp}:{portNo}");
-                    }
-                }      
-            }
-        }
-
-        // 
-        // Summary:
-        //     Stops remote VNC-viewer and/or ffplay.
+        //     Stops remote streaming-sink.
         // Exceptions:
         //   T:SWirelessDisplayClient.Services.WDCServiceException:
         //     The request was not successfull, or LastKnownRemoteIP isn't valid anymore.
@@ -341,3 +337,5 @@ namespace WirelessDisplayClient.Services
 
     }
 }
+
+*/

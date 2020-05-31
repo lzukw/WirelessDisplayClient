@@ -33,30 +33,28 @@ From the created files, the following ones are important:
   `Views/MainWindow.xaml.cs` is called 'code-behind' for the 'view'.
 - `ViewModels/MainWindowViewModel.cs`: The so called 'viewmodel' for the view.
   See [Views and ViewModels](http://avaloniaui.net/docs/quickstart/mvvm#views-and-viewmodels)
-  for a good explanation for the idea behind 'views' and  their 'viewmodel', and
-  co called 'bindings' between them.
+  for a good explanation for the idea behind 'views' and  their 'viewmodel', 
+  and so called 'bindings' between them.
 - The `Models`-folder is not used in this project, since there is no data to
   be managed.
 
 The following files were created:
 
-- `App.config`: An xml-File containting key-value-pairs, that can easily be 
+- `App.config`: An xml-File containting key-value-pairs, which can easily be 
   read by `System.Configuration.ConfigurationManager.AppSettings`. This is 
   done in `App.xaml.cs`.
 - The folder `Services` containing:
   * `IWDCServciceProvider.cs`
-  * `WDCServiceProviderBase.cs`
-  * Concrete classes inheriting from `WDCServiceProviderBase.cs`. (for now 
-    only `WDCSercviceProviderGeneric.cs`).
+  * `WDCSercviceProviderGeneric.cs`
   * `WDCSercviceException.cs`
 
 ## Service
 
 The background-work is performed by the classes defined in the folder 
-`Services`.
+[Services].
 
 `WDCSercviceException` is the type of exceptions thrown by the classes in 
-the `Services`-folder.
+the [Services]-folder.
 
 The provided services are declared as methods and properties of the interface 
 `IWDCServciceProvider`:
@@ -66,72 +64,67 @@ The provided services are declared as methods and properties of the interface
 - Methods to get and set screen-resolution of the remote computer
 - Methods to start and stop VNC- or ffmpeg-streaming.
 
-The abstract base-class `WDCServiceProviderBase` implements 
-`IWDCServciceProvider`. This class provides non-abstract methods for the 
-communication via the REST-API with the remote computer. 
-Platform-dependent local services (for example starting ffmpeg as local 
-streaming-source)  are defined as abstract methods and therfore must be 
-implemented by child-classes from `WDCServiceProviderBase`.
-
-The idea behind this hirarchy is, that there could be some platform-dependent 
-concrete classes like `WDCServiceProviderLinux`, `WDCServiceProviderMacOS`
-and `WDCServiceProviderWindows`. These classes could do the platform-dpendent
-work to provide the services. But for now, there is only one concrete 
-child-class, called `WDCSercviceProviderGeneric`. Hopefully, this class 
-can be used on Linux, Windows and macOS.
+There is only one concrete class called `WDCSercviceProviderGeneric` that 
+implements `IWDCServciceProvider`.
 
 The `WDCSercviceProviderGeneric`-class does not start ffmpeg or a VNC-server
 directly, but it starts a process wich executes a script. On Linux the script 
 is a shell-script started with bash on Linux, a batch-file started with 
 cmd.exe on Windows, and ??? TODO ??? on macOS. The command-name "bash" or 
 "cmd.exe" and the file-paths to the scripts to execute are passed to the 
-constructor of `WDCSercviceProviderGeneric`.
+constructor of `WDCSercviceProviderGeneric`. The file-paths to the scripts
+and a template for the comman-line-arguments are also passed this way.
 
-One instance of a concrete class (for now an instance of 
-`WDCSercviceProviderGeneric`) is instantiated in `App.xaml.cs` and
+One instance of a concrete class implementing `IWDCServciceProvider` (for now
+only `WDCSercviceProviderGeneric`) is instantiated in [App.xaml.cs] and
 "injected" in the constructor of the `MainWindowViewModel`. The
-`MainWindowViewModel`-instance uses the services provided by the 
-`WDCSercviceProviderGeneric`-instance.
+`MainWindowViewModel`-instance uses the services provided by the concrete
+`IWDCServciceProvider`-instance.
 
 ## Configuration with App.config and startup-code
 
 Dotnet core provides a simple configuration-mechanism using an XML-file called
-`App.config`. In the section `<appsettings>` key-value-pairs can be defined.
-The `App`-class defined in `App.xaml.cs` contains the startup-code. (The file 
-`App.xaml` has not been modified). Here the configuration from `App.config` 
-is read with the statement into the variable `config`:
+[App.config]. In the section `<appsettings>` key-value-pairs can be defined.
+The `App`-class defined in [App.xaml.cs] contains the startup-code. (The file 
+[App.xaml] has not been modified). Here the configuration from [App.config`]
+is read into the variable `config` with the statement :
 
 ```
 NameValueCollection config = ConfigurationManager.AppSettings;
 ```
 
-`App.config` contains configuration-strings containing:
+[App.config] contains configuration-strings containing:
 
 - The command-name to execute a shell ("bash", "cmd.exe")
 - The filepath of the scripts that start ffmpeg or a VNC-Server on the local
   computer.
 - Template-strings for command-line arguments.
+- The preferred screen-resolution for local and remote computer
 
 There are configuration-strings for Linux, Windows and macOS. In 
-`App.xaml.cs` the correct operating-system is found with 
+[App.xaml.cs] the correct operating-system is found with 
 `RuntimeInformation.IsOSPlatform(...)`-tests. Then the corresponding
 configuration-strings are copied into a new `NameValueCollection`, which is 
 passed to the constructor of `WDCSercviceProviderGeneric`.
 
-Note, that it should not be necessary to change `App.config`. To change
+Note, that it is not necessary to change [App.config]. To change
 the way, how ffmpeg or a VNC-Server are started, the corresponding
-shell- or batch-sripts can be changed.
+shell- or batch-sripts can be changed. The only reason to change [App.config]
+is to change the preferred screen-reolsution of the local and the remote
+computer.
 
 Also note, that after publishing the program with `dotnet publish` the 
-XML-configuration is not called `App.config` anymore, but it is called
-`WirelessDisplayClient.exe.config`.
+XML-configuration is not called [App.config] anymore, but it is called
+[WirelessDisplayClient.exe.config]. But this file can still be modified
+without the need to recompile or publish the program again.
 
-Sumarrized, the custom startup-code in `App.xaml.cs` just creates an
+Sumarrized, the custom startup-code in [App.xaml.cs] just creates an
 instance of `WDCSercviceProviderGeneric` and passes the correct
-configuration-key-value-pairs to its constructor. Also an instance of
-`MainWindowViewModel` is created, and the 
+configuration-key-value-pairs to its constructor. The startup-code also
+creates an instance of `MainWindowViewModel`, and a reference to the 
 `WDCSercviceProviderGeneric`-instance is passed to the constructor of
-the `MainWindowViewModel`.
+the `MainWindowViewModel`, for the `MainWindowViewModel` to be able to use
+the services provided by `WDCSercviceProviderGeneric`.
 
 ## Window-elements and MVMM-pattern:
 
@@ -148,7 +141,11 @@ and `MainWindowViewModel`). The most important elements in the Main-window are:
   `MainWindowViewModel.ButtonConnect_Click` and 
   `MainWindowViewModel.ButtonDisconnect_Click`.
 - TextBlocks to display local and remote screen-resolutions (initial and 
-  current resolutions).
+  current resolutions), bound to the properties 
+  * `MainWindowViewModel.InitialLocalScreenResolution`
+  * `MainWindowViewModel.CurrentLocalScreenResolution`
+  * `MainWindowViewModel.InitialRemoteScreenResolution`
+  * `MainWindowViewModel.CurrentRemoteScreenResolution`
 - Two ComboBoxes to select the local and remote screen-resolution. The 
   selected screen-resolutions are set, when the user starts the streaming.
   Note: There is a third screen-resolution: The resolution used for the
@@ -156,10 +153,10 @@ and `MainWindowViewModel`). The most important elements in the Main-window are:
   remote computer (because no scaling of the received stream is performed by
   the WirelessDisplayServer on the remote computer). The items of these
   ComboBoxes and the index of the selected item are bound to the properties
-  * AvailableRemoteScreenResolutions
-  * SelectedRemoteScreenResolutionIndex
-  * AvailableRLocalScreenResolutions
-  * SelectedLocalScreenResolutionIndex
+  * `MainWindowViewModel.AvailableRemoteScreenResolutions`
+  * `MainWindowViewModel.SelectedRemoteScreenResolutionIndex`
+  * `MainWindowViewModel.AvailableRLocalScreenResolutions`
+  * `MainWindowViewModel.SelectedLocalScreenResolutionIndex`
 - Two RadioButtons to selct the streaming-method. The `IsChecked`-Property 
   of the two RadioButtons is bound to the properties
   `MainWindowViewModel.VncSelected` and `MainWindowViewModel.FFmpegSelected`.
@@ -176,14 +173,14 @@ and `MainWindowViewModel`). The most important elements in the Main-window are:
   displaying status-information.
 
 Furthermore, there are two boolean-properties 
-`CMainWindowViewModel.onnectionEstablished` and 
+`MainWindowViewModel.ConnectionEstablished` and 
 `MainWindowViewModel.StreamStarted`, which are bound to the 
-IsEnabled-Attribute of the above described window-elements. 
+IsEnabled-Attribute of several of the above described window-elements. 
 
-When theuser closes the window, the method  
+When theuser closes the window, the method 
 `MainWindowViewModel.OnWindowClose` is called.
 
-Remark: It is not necessary to understand the code of this application,
+Remark: It is not necessary to understand the fololowing explanation,
 but the bindings between `MainWindowViewModel` and the `MainWindow`-view are 
 established by:
 
@@ -199,11 +196,9 @@ established by:
 In the code-behind ot the Main-Window-View (`MainWindow.xaml.cs`) the call to
 `MainWindowViewModel.OnWindowClose()` is performed, when the user closes
 the window using the (X)-Button in the title-bar of the window. This is
-ensured with the field
+ensured by registration of a lambda to the `this.Closing`-event and by
+the field:
 
 ```
 private bool  _readyToCloseWindow = false;
-```
-
-and by registration of a lambda to the `this.Closing`-event, where `this` is
-the `MainWindow`-View.
+``` 

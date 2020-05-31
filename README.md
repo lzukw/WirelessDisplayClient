@@ -2,7 +2,8 @@
 
 ## Overview
 
-This WirelessDispalyClient works togehter with the WirelessDisplayServer-program.
+This WirelessDispalyClient works togehter with the 
+[WirelessDisplayServer](https://github.com/lzukw/WirelessDisplayServer)-program.
 
 The WirelessDisplayServer-program runs on a 'projecting-computer', which is 
 connected to a projector. The WirelessDispalyClient (this program) runs
@@ -14,26 +15,35 @@ The WirelessDisplayServer implements a REST-API which is used by the
 WirelessDispalyClient. By using the REST-API and starting local programs, 
 the WirelessDispalyClient is able to
 
-- change the screen-resolution of the 'projecting-computer' (and the
-  projector),
+- change the screen-resolutions of both computers (and the projector),
 - start the streaming-sink (VNC-viewer in listen-mode/reverse-connection 
-  or ffplay) on the 'projecting-computer', and
-- start the streaming-source on local computer ('presentation-computer'). 
+  or ffplay) on the remote 'projecting-computer', and
+- start the streaming-source on local 'presentation-computer'. 
 
 ## Running and Configuration
 
-The C#-source-code of this program (WirelessDispalyClient) is in the folder   
-`WirelessDispalyClientGUI`. From within this directory the program can be started using `dotnet run`. But first the necessary third-party executables must be installed. 
+The C#-source-code of this program (WirelessDispalyClient) is in the folder
+`WirelessDispalyClientGUI`. The project was created and edited using
+Visual-Studio-Code and the platform-independent GUI-Fromwork 
+[Avalonia](http://avaloniaui.net/). From within the directory 
+`WirelessDispalyClientGUI` the program can be started using `dotnet run`. 
+But first the necessary third-party executables should be installed. 
 
-The starting-scripts used by WirelessDispalyClientGUI are in the folder
-`External_Programs/<operating-system>`.
+TODO: Maybe Avalonia has to be installed too. How?
 
-For Linux ffmpeg, x11vnc and xrandr must be available.
+WirelessDispalyClientGUI doesn't start third-party-executables directly, but
+uses starting-scripts, which are in the folder `Scripts/<operating-system>`. 
+See the [README.md] in the directory `Scripts` there for details.
 
-For Windows ffmpeg (ffmpeg.exe) and thightVNC-1.3.10 (WinVNC.exe) are
-used. Portable versions can also be used, but then starting-batch-files
-in  `External_Programs/Windows`must be configured to use these portable versions (Just replace ffmpeg.exe and WinVNC.exe with the absolute or
-relative paths to the portable .exe-files).
+For Linux ffmpeg, x11vnc and xrandr must be available. Since these tools are
+normally installed using the package-manager of your Linux-distro, the 
+`ThirdPary`-folder normally remains empty. But, see the [README.md] in the 
+folder `ThirdParty` for more details.
+
+For Windows ffmpeg (ffmpeg.exe), thightVNC-1.3.10 (WinVNC.exe) and ScreenRes
+(screenres.exe) are used. The Script-files in `Scripts/Windows` look for
+executables in the directory `ThirdParty`. See the [README.md] in `Scripts` and
+the [README.md] in `ThirdParty` for details.
 
 For macOS ...TODO
 
@@ -51,6 +61,6 @@ On Windows, replace `linux-x64` with `win-x64` and on macOS with `osx-x64`.
 
 The above command builds a "stand-alone"-Version of the program, which could 
 be copied to another computer. If dotnet Core Version 3 is installed on the
-presentation-computer, then omit both parameters `-r linux-x64 --self-contained`.
-
+presentation-computer, then omit the parameters `-r linux-x64` and 
+`--self-contained`.
 

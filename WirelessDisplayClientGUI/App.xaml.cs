@@ -85,7 +85,7 @@ namespace WirelessDisplayClient
                 // IServiceProvider-instance to it.
                 desktop.MainWindow = new MainWindow // <-- This line is original code from Avlonia-template
                 {
-                    DataContext = new MainWindowViewModel(serviceProvider),
+                    DataContext = new MainWindowViewModel(specificConfig, serviceProvider),
                 };
                 //////////// Modified Code ends here //////////////////////////
             }

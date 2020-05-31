@@ -4,6 +4,12 @@ using System.Threading.Tasks;
 
 namespace WirelessDisplayClient.Services
 {
+    public enum StreamType
+    {
+        VNC,
+        FFmpeg
+    }
+
     public interface IWDCServciceProvider
     {
         //
@@ -28,13 +34,56 @@ namespace WirelessDisplayClient.Services
         
         //
         // Summary:
+        //     Returns the initial screen-resolulion of the local computer.
+        // Returns:
+        //     A string with the initial screen-resolution, for example "1280x1024".
+        // Exceptions:
+        //   T:SWirelessDisplayClient.Services.WDCServiceException:
+        //     The local process didn't start or not return a valid screen-resolution
+        string GetInitialLocalScreenResolution();
+
+        //
+        // Summary:
+        //     Returns the current screen-resolulion of the local computer.
+        // Returns:
+        //     A string with the current screen-resolution, for example "1024x768".
+        // Exceptions:
+        //   T:SWirelessDisplayClient.Services.WDCServiceException:
+        //     The local process didn't start or not return a valid screen-resolution
+        string GetCurrentLocalScreenResolution();
+
+        //
+        // Summary:
+        //     Returns all available screen-resolutions of the local computer.
+        // Returns:
+        //     A list of strings with the available screen-resolutions, 
+        //     for example { "640x460", "1024x768", ...}.
+        // Exceptions:
+        //   T:SWirelessDisplayClient.Services.WDCServiceException:
+        //     The local process didn't start or not return a valid screen-resolution
+        List<string> GetAvailableLocalScreenResolutions();
+
+        //
+        // Summary:
+        //     Changes the screen-resolution of the local computer.
+        // Parameters:
+        //   resolution:
+        //     A string containing the screen-resolution to set, for example
+        //     "1024x768" (The string is without quotes!).
+        // Exceptions:
+        //   T:SWirelessDisplayClient.Services.WDCServiceException:
+        //     The local process didn't start or not return a valid screen-resolution
+        void SetLocalScreenResolution(string resolution);
+
+        //
+        // Summary:
         //     Returns the initial screen-resolulion of the remote computer.
         // Returns:
         //     A string with the initial screen-resolution, for example "1280x1024".
         // Exceptions:
         //   T:SWirelessDisplayClient.Services.WDCServiceException:
         //     The request was not successfull, or LastKnownRemoteIP isn't valid anymore.
-        Task<string> GetInitialScreenResolution();
+        Task<string> GetInitialRemoteScreenResolution();
 
         //
         // Summary:
@@ -44,7 +93,7 @@ namespace WirelessDisplayClient.Services
         // Exceptions:
         //   T:SWirelessDisplayClient.Services.WDCServiceException:
         //     The request was not successfull, or LastKnownRemoteIP isn't valid anymore.
-         Task<string> GetCurrentScreenResolution();
+        Task<string> GetCurrentRemoteScreenResolution();
 
         //
         // Summary:
@@ -71,53 +120,35 @@ namespace WirelessDisplayClient.Services
 
         //
         // Summary:
-        //     Start VNC-Server on the local computer and VNC-viewer on the
-        //     remote computer. The VNC-connection is in "reverse-connection"
-        //     (VNC-viewer in listen-mode).
-        // Paremeters:
+        //     Start streaming-source on the local computer and streaming-sink
+        //     on the remote computer. 
+        // Parameters:
+        //   typeOfStream:
+        //     One of the stream-types given in enum StreamType (VNC or FFmpeg)
         //   portNo:
-        //     The port-Number used for the remote VNC-viewer to listen on.
+        //     The port-Number used for the remote streaming-sink to listen on.
         //   senderResolution:
         //     A string contating the screen-resolution of the local computer.
+        //     In some cases (operating-system / type of streaming) null could be alloewed.
         //   streamResolution:
         //     A string contating the screen-resolution used for streaming.
-        //     Remark: On linux this is the only required parameter.
+        //     In some cases (operating-system / type of streaming) null coudl be alloewed.
         //   receiverResolution:
         //     A string contating the screen-resolution of the remote computer.
+        //     In some cases (operating-system / type of streaming) null coudl be alloewed.
         // Exceptions:
         //   T:SWirelessDisplayClient.Services.WDCServiceException:
         //     The request was not successfull, or LastKnownRemoteIP isn't valid anymore.
-        Task StartVNCStreaming( UInt16 portNo,
-                                string senderResolution = null,
-                                string streamResolution = null, 
-                                string receiverResolution = null );
-                                    
-        //
-        // Summary:
-        //     Start streaming using ffmpeg on the local computer as streaming-source
-        //     and ffplay on the remote computer as streaming-sink.
-        // Paremeters:
-        //   portNo:
-        //     The port-Number used for the UDP-Stream (ffplay will listen on this port).
-        //   senderResolution:
-        //     A string contating the screen-resolution of the local computer.
-        //   streamResolution:
-        //     A string contating the screen-resolution used for streaming.
-        //     Remark: On linux this is the only required parameter.
-        //   receiverResolution:
-        //     A string contating the screen-resolution of the remote computer.
-        // Exceptions:
-        //   T:SWirelessDisplayClient.Services.WDCServiceException:
-        //     The request was not successfull, or LastKnownRemoteIP isn't valid anymore.
-        Task StartFFmpegStreaming( UInt16 portNo,
-                                   string senderResolution = null,
-                                   string streamResolution = null, 
-                                   string receiverResolution = null );        
+        Task StartStreaming( StreamType typeOfStream,
+                             UInt16 portNo,
+                             string senderResolution = null,
+                             string receiverResolution = null );
+
 
         //
         // Summary:
-        //   Stops VNC-viewer and ffplay on the remote-computer, and stops
-        //   VNC-server and ffmpeg on the local-computer
+        //   Stops streaming-sink on the remote-computer, and stops
+        //   the streaming-source on the local-computer
         // Exceptions:
         //   T:SWirelessDisplayClient.Services.WDCServiceException:
         //     The request was not successfull, or LastKnownRemoteIP isn't valid anymore.
