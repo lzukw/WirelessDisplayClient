@@ -547,8 +547,8 @@ namespace WirelessDisplayClient.Services
             _localStreamSourceProcess.StartInfo.FileName = _shell;
             _localStreamSourceProcess.StartInfo.Arguments = argsForProcess;
             _localStreamSourceProcess.StartInfo.WorkingDirectory = scriptPath.Directory.FullName;
-            //_localStreamSourceProcess.StartInfo.UseShellExecute = false;
-            //_localStreamSourceProcess.StartInfo.CreateNoWindow = true;
+            _localStreamSourceProcess.StartInfo.UseShellExecute = false;
+            _localStreamSourceProcess.StartInfo.CreateNoWindow = true;
 
             // This should never throw an expeption, if at least the name of the 
             // shell(bash, cmd.exe) is correct.
