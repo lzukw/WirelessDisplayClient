@@ -439,7 +439,11 @@ namespace WirelessDisplayClient.Services
         //     its standard-output.
         private List<string> genericExecuteScreenResScript(string scriptArgs, int timeout = 10000)
         {
-            string argsForProcess = _shell_Args_Template.Replace("%SCRIPT_AND_ARGS", $"{_manageScreenResScriptPath} {scriptArgs}");
+            FileInfo scriptPath = new FileInfo(_manageScreenResScriptPath);
+
+            string argsForProcess = _shell_Args_Template;
+            argsForProcess = argsForProcess.Replace("%SCRIPT", scriptPath.FullName);
+            argsForProcess = argsForProcess.Replace("%ARGS",scriptArgs);
             
             List<string> outputLines = new List<string>();
 
@@ -448,10 +452,12 @@ namespace WirelessDisplayClient.Services
             
                 _manageScreenResProcess.StartInfo.FileName = _shell;
                 _manageScreenResProcess.StartInfo.Arguments = argsForProcess;
+                _manageScreenResProcess.StartInfo.WorkingDirectory = scriptPath.Directory.FullName;
                 _manageScreenResProcess.StartInfo.UseShellExecute = false;
                 _manageScreenResProcess.StartInfo.CreateNoWindow = true;
                 _manageScreenResProcess.StartInfo.RedirectStandardOutput = true;
                 _manageScreenResProcess.StartInfo.RedirectStandardError = true;
+
                 try 
                 {
                     _manageScreenResProcess.Start();
@@ -461,19 +467,12 @@ namespace WirelessDisplayClient.Services
                     throw new WDCServiceException($"Could not start Script for managing screen-resoltuions: {e.Message}");
                 }
 
-                for (int i=0; i< timeout/10; i++)
-                {
-                    if (_manageScreenResProcess.HasExited)
-                    {
-                        break;
-                    }
-                    System.Threading.Thread.Sleep(10);
-                }
+                bool exited = _manageScreenResProcess.WaitForExit(timeout);
                
-                if (! _manageScreenResProcess.HasExited)
+                if (! exited )
                 {
                     throw new WDCServiceException($"Process not finished within {timeout} Milliseconds: '{_shell} {argsForProcess}'. Scripting Error?");
-                }
+                }               
 
                 if (_manageScreenResProcess.ExitCode != 0 )
                 {
@@ -521,7 +520,9 @@ namespace WirelessDisplayClient.Services
                                      string senderResolution = null,
                                      string receiverResolution = null )
         {
-            string ipAddress = ((IWDCServciceProvider) this).LastKnownRemoteIP;
+            FileInfo scriptPath = new FileInfo(_startStreamingScriptPath);
+
+            string ipAddress = _lastKnownRemoteIp;
             if (string.IsNullOrEmpty(ipAddress))
             {
                 throw new WDCServiceException("This seems to be a BUG: LastKnonIPAddress is not set when calling genericStartProcess()");
@@ -534,7 +535,9 @@ namespace WirelessDisplayClient.Services
             scriptArgs = scriptArgs.Replace("%WxH_SENDER", !string.IsNullOrEmpty(senderResolution) ? senderResolution : "null");
             scriptArgs = scriptArgs.Replace("%WxH_RECEIVER", !string.IsNullOrEmpty(receiverResolution) ? receiverResolution : "null");
 
-            string argsForProcess = _shell_Args_Template.Replace("%SCRIPT_AND_ARGS", $"{_startStreamingScriptPath} {scriptArgs}");
+            string argsForProcess = _shell_Args_Template;
+            argsForProcess = argsForProcess.Replace("%SCRIPT", scriptPath.FullName);
+            argsForProcess = argsForProcess.Replace("%ARGS", scriptArgs);
             
             // Kill and Dispose old process, if it exists and is running
             genericStopStreamProcess();
@@ -543,7 +546,9 @@ namespace WirelessDisplayClient.Services
             _localStreamSourceProcess = new Process();
             _localStreamSourceProcess.StartInfo.FileName = _shell;
             _localStreamSourceProcess.StartInfo.Arguments = argsForProcess;
-            //_localStreamSourceProcess.StartInfo.UseShellExecute = true;
+            _localStreamSourceProcess.StartInfo.WorkingDirectory = scriptPath.Directory.FullName;
+            //_localStreamSourceProcess.StartInfo.UseShellExecute = false;
+            //_localStreamSourceProcess.StartInfo.CreateNoWindow = true;
 
             // This should never throw an expeption, if at least the name of the 
             // shell(bash, cmd.exe) is correct.

@@ -53,8 +53,8 @@ An executable version can be created with the following commands (from
 within the folder WirelessDispalyClientGUI, where Program.cs is):
 
 ```
-mkdir ..\WirelessDisplayClient_executable 
-dotnet publish -c Release -o ..\WirelessDisplayClient_executable -r linux-x64 --self-contained
+mkdir ..\WirelessDisplayClientGUI_executable 
+dotnet publish -c Release -o ..\WirelessDisplayClientGUI_executable -r linux-x64 --self-contained
 ```
 
 On Windows, replace `linux-x64` with `win-x64` and on macOS with `osx-x64`.
@@ -64,3 +64,11 @@ be copied to another computer. If dotnet Core Version 3 is installed on the
 presentation-computer, then omit the parameters `-r linux-x64` and 
 `--self-contained`.
 
+After publishing, the complete program consists of the three folders:
+
+- [Scripts]
+- [ThirdParty]
+- [WirelessDisplayClientGUI_executable]
+
+Inside [WirelessDisplayClientGUI_executable] is the executable 
+[WirelessDisplayClientGUI.exe].
