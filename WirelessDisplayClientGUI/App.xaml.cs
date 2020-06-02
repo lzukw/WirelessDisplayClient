@@ -9,6 +9,7 @@ using System.Configuration;
 using System.Collections.Specialized;
 using System.Runtime.InteropServices;
 using System.IO;
+using Microsoft.Extensions.Logging;
 
 namespace WirelessDisplayClient
 {
@@ -23,74 +24,116 @@ namespace WirelessDisplayClient
         {
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
-                //////////// Modified Code starts here //////////////////////////
-                
-                // Will contain the specific type implementing the IServiceprovider.
-                // An IServiceProvider-Isntance is needed for the MainWindowViewModel.
-                // The specific type depends on the operating system we are running on.
-                Type serviceProviderType; 
+                ( ILogger<MainWindowViewModel> mainWindowViewModelLogger,
+                  IScreenResolutionService screenResolutionService, 
+                  IStreamSourceService streamSourceService, 
+                  IRestApiClientService restApiClientService, 
+                  int preferredScreenWidth ) =  instantiateWDCServices();
 
-                // This loads the configuration from App.config (during development)
-                // WirelessDisplayClient.exe.config (when published)
-                NameValueCollection config = ConfigurationManager.AppSettings;
-
-                // specificConfig will contain the key-value-pairs passed
-                // to the constructor of the IServiceprovider to instantiate.
-                NameValueCollection specificConfig = new NameValueCollection();
-                
-                // Either "_Linux", "_Windows", or "_macOS"
-                string osKeySuffix;
-
-                // Find out the operating-System and according to it, specify
-                // the concrete type for the needed IServiceProvider
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-                {
-                    osKeySuffix = "_Linux";
-                    serviceProviderType = typeof(WDCSercviceProviderGeneric);
-                }
-                else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-                {
-                    osKeySuffix = "_macOS";
-                    serviceProviderType = typeof(WDCSercviceProviderGeneric);
-                }
-                else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                {
-                    osKeySuffix = "_Windows";
-                    serviceProviderType = typeof(WDCSercviceProviderGeneric);
-                }
-                else
-                {
-                    throw new Exception("Operating System not supported");
-                }
-
-                // Load correct App.config-Parameters and strip the operating-
-                // system-suffi. Put these Parametersx in the new key-value-
-                // collection specificConfig.
-                foreach(string key in config.AllKeys)
-                {
-                    if(key.EndsWith(osKeySuffix))
-                    {
-                        specificConfig[ key.Replace(osKeySuffix, "") ] = config[key];
-                    }
-                }
-
-                // Create the IServiceProvider-instance, passing specificConfig
-                // as arguments to its constructor.
-                IWDCServciceProvider serviceProvider = 
-                        (IWDCServciceProvider) Activator
-                        .CreateInstance( serviceProviderType, specificConfig);
-                
-
-                // Finally create the MainWindowViewModel and pass the created
-                // IServiceProvider-instance to it.
+                // Create the MainWindowViewModel and pass the created
+                // service-providers and the preferred screen-width to it.
                 desktop.MainWindow = new MainWindow // <-- This line is original code from Avlonia-template
                 {
-                    DataContext = new MainWindowViewModel(specificConfig, serviceProvider),
+                    DataContext = new MainWindowViewModel(  mainWindowViewModelLogger, 
+                                                            screenResolutionService,
+                                                            streamSourceService,
+                                                            restApiClientService,
+                                                            preferredScreenWidth ),
                 };
-                //////////// Modified Code ends here //////////////////////////
             }
 
             base.OnFrameworkInitializationCompleted();
+        }
+
+
+        //
+        // Summary:
+        //     Creates and returns necessary instances of WirelessDisplayClient-serviceProviders.
+        //     These instances are later passed to the constructor of the MainWindowViewModel,
+        //     which uses the provided services.
+        //     Also the preferred screen-reslution given in App.Config is returned.
+        private Tuple<
+                    ILogger<MainWindowViewModel>, 
+                    IScreenResolutionService, 
+                    IStreamSourceService, 
+                    IRestApiClientService, 
+                    int> 
+                instantiateWDCServices()
+        {
+            // Create typed loggers.
+            // See https://docs.microsoft.com/en-us/aspnet/core/fundamentals/logging/?view=aspnetcore-3.1#non-host-console-app
+            var loggerFactory = LoggerFactory.Create(builder =>
+            {
+                builder
+                    .AddFilter("Microsoft", LogLevel.Warning)
+                    .AddFilter("System", LogLevel.Warning)
+                    .AddFilter("Default", LogLevel.Information)
+                    .AddConsole();
+            });
+
+            var screenResolutionServiceLogger = loggerFactory.CreateLogger<ScreenResolutionService>();
+            var streamSourceServiceLogger = loggerFactory.CreateLogger<StreamSourceService>();
+            var restApiClientServiceLogger = loggerFactory.CreateLogger<RestApiClientService>();
+            var mainWindowViewModelLogger = loggerFactory.CreateLogger<MainWindowViewModel>();
+
+            // Find out the operating-System and according to it, specify
+            // the concrete type for the needed IServiceProvider
+            // Either "Linux", "Windows", or "macOS"
+            string operatingSystem;
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                operatingSystem = "Linux";
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                operatingSystem = "macOS";
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                operatingSystem = "Windows";
+            }
+            else
+            {
+                throw new Exception("Operating System not supported");
+            }
+
+            // Extract necessary strings from configuration (App.config)
+            NameValueCollection config = ConfigurationManager.AppSettings;
+
+            string shell = config[$"shell_{operatingSystem}"];
+            string shellArgsTemplate = config[$"shell_Args_Template_{operatingSystem}"];
+            string startStreamingSourceScriptPath = config[$"Start_Streaming_Source_Script_Path_{operatingSystem}"];
+            string startStreamingSourceScriptArgsTemplate = config[$"Start_Streaming_Source_Script_Args_Template_{operatingSystem}"];
+            string manageScreenResolutionsScriptPath = config[$"Manage_Screen_Resolutions_Script_Path_{operatingSystem}"];
+            string manageScreenResolutionsScriptArgsTemplate = config[$"Manage_Screen_Resolutions_Script_Args_Template_{operatingSystem}"];
+            int preferredScreenWidth = Convert.ToInt32(config[$"Preferred_Screen_Width_{operatingSystem}"]);
+
+            IScreenResolutionService screenResolutionService = new ScreenResolutionService(
+                    logger : screenResolutionServiceLogger,
+                    shell : shell,
+                    shellArgsTemplate : shellArgsTemplate,
+                    manageScreenResolutionsScriptPath : manageScreenResolutionsScriptPath,
+                    manageScreenResolutionsScriptArgsTemplate : manageScreenResolutionsScriptArgsTemplate
+                    );
+
+            IStreamSourceService streamSourceService = new StreamSourceService(
+                    logger : streamSourceServiceLogger,
+                    shell : shell,
+                    shellArgsTemplate : shellArgsTemplate,
+                    startStreamingSourceScriptPath : startStreamingSourceScriptPath,
+                    startStreamingSourceScriptArgsTemplate : startStreamingSourceScriptArgsTemplate
+                    );
+
+            IRestApiClientService restApiClientService = new RestApiClientService(
+                    logger : restApiClientServiceLogger
+                    );
+
+            return Tuple.Create( mainWindowViewModelLogger,
+                                 screenResolutionService, 
+                                 streamSourceService, 
+                                 restApiClientService, 
+                                 preferredScreenWidth);
         }
     }
 }

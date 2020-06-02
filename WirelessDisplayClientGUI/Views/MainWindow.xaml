@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:views="clr-namespace:WirelessDisplayClient.Views"
         mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="500"
-        Width="600" Height="450"
+        Width="600" Height="475"
         x:Class="WirelessDisplayClient.Views.MainWindow"
         Icon="/Assets/avalonia-logo.ico"
         Title="WirelessDisplay - Client">
@@ -65,7 +65,7 @@
     <Border  Margin="5" CornerRadius="6" BorderBrush="Gray" BorderThickness="1">
       <StackPanel>
        <TextBlock VerticalAlignment="Center" Margin="5" FontWeight="Bold">Status:</TextBlock>
-       <ScrollViewer Height="40">
+       <ScrollViewer Height="60">
          <TextBlock Text="{Binding StatusText}" Margin="10 0 0 0" FontSize="12" TextWrapping="Wrap" />
         </ScrollViewer>
       </StackPanel>

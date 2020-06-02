@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using WirelessDisplayClient.Services;
 using ReactiveUI;
 using System.Collections.ObjectModel;
-using System.Collections.Specialized;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace WirelessDisplayClient.ViewModels
 {
@@ -15,6 +15,12 @@ namespace WirelessDisplayClient.ViewModels
         //////////////////////////////////////////////////////////////////////
         #region
 
+        private readonly ILogger<MainWindowViewModel> logger;
+        private readonly IScreenResolutionService screenResolutionService;
+        private readonly IStreamSourceService streamSourceService;
+        private readonly IRestApiClientService restApiClientService;
+        private readonly int preferredScreenWidth;
+
         // Summary:
         //     Constructor.
         // Parameters:
@@ -23,17 +29,18 @@ namespace WirelessDisplayClient.ViewModels
         //     with the REST-API, setting the remote screen-resolution, and
         //     starting/stopping the local VNC-Server or FFmpeg.
         //     The serviceProvider is "injected" to the constructor.
-        public MainWindowViewModel( NameValueCollection config,
-                                    IWDCServciceProvider serviceProvider )
+        public MainWindowViewModel( ILogger<MainWindowViewModel> logger,
+                  IScreenResolutionService screenResolutionService, 
+                  IStreamSourceService streamSourceService, 
+                  IRestApiClientService restApiClientService, 
+                  int preferredScreenWidth )
         {
-            _wdcServiceProvider = serviceProvider;
-            _desiredWidth = Convert.ToInt32(config["Preferred_Screen_Width"]);
+            this.logger = logger;
+            this.screenResolutionService = screenResolutionService;
+            this.streamSourceService = streamSourceService;
+            this.restApiClientService = restApiClientService;
+            this.preferredScreenWidth = preferredScreenWidth;
         }
-
-        // Here the information passed to the constructor is stored
-        private readonly IWDCServciceProvider _wdcServiceProvider;
-        private readonly int _desiredWidth;
-
 
         #endregion
 
@@ -220,7 +227,7 @@ namespace WirelessDisplayClient.ViewModels
             // Try to connect.
             try
             { 
-                await _wdcServiceProvider.Connect(IpAddress);
+                await restApiClientService.Connect(IpAddress);
             }
             catch (WDCServiceException e)
             {
@@ -233,7 +240,7 @@ namespace WirelessDisplayClient.ViewModels
             try
             {
                 InitialLocalScreenResolution = 
-                        _wdcServiceProvider.GetInitialLocalScreenResolution();
+                        screenResolutionService.InitialScreenResolution;
             }       
             catch (WDCServiceException e)
             {
@@ -245,7 +252,7 @@ namespace WirelessDisplayClient.ViewModels
             try
             {
                 InitialRemoteScreenResolution = await 
-                        _wdcServiceProvider.GetInitialRemoteScreenResolution();
+                        restApiClientService.GetInitialRemoteScreenResolution();
             }       
             catch (WDCServiceException e)
             {
@@ -257,7 +264,7 @@ namespace WirelessDisplayClient.ViewModels
             try
             {
                 CurrentLocalScreenResolution =  
-                        _wdcServiceProvider.GetCurrentLocalScreenResolution();
+                        screenResolutionService.CurrentScreenResolution;
             }
             catch (WDCServiceException e)
             {
@@ -269,7 +276,7 @@ namespace WirelessDisplayClient.ViewModels
             try
             {
                 CurrentRemoteScreenResolution = await 
-                        _wdcServiceProvider.GetCurrentRemoteScreenResolution();
+                        restApiClientService.GetCurrentRemoteScreenResolution();
             }
             catch (WDCServiceException e)
             {
@@ -280,8 +287,7 @@ namespace WirelessDisplayClient.ViewModels
             // Fill the ComboBox-items with the available local screen-resolutions
             try 
             {
-                List<string> resolutions =  
-                        _wdcServiceProvider.GetAvailableLocalScreenResolutions();
+                List<string> resolutions =  screenResolutionService.AvailableScreenResolutions;
                 SelectedLocalScreenResolutionIndex = -1;
                 AvailableLocalScreenResolutions.Clear();
                 foreach (string res in resolutions)
@@ -303,7 +309,7 @@ namespace WirelessDisplayClient.ViewModels
             try 
             {
                 List<string> resolutions = await 
-                        _wdcServiceProvider.GetAvailableRemoteScreenResolutions();
+                        restApiClientService.GetAvailableRemoteScreenResolutions();
                 SelectedRemoteScreenResolutionIndex = -1;
                 AvailableRemoteScreenResolutions.Clear();
                 foreach (string res in resolutions)
@@ -323,7 +329,7 @@ namespace WirelessDisplayClient.ViewModels
 
             // Finally switch the Window-State:
             ConnectionEstablished = true;
-            StatusText += $"Successfully connected to {_wdcServiceProvider.LastKnownRemoteIP}\n";
+            StatusText += $"Successfully connected to {restApiClientService.LastKnownRemoteIP}\n";
         }
 
         //
@@ -332,15 +338,14 @@ namespace WirelessDisplayClient.ViewModels
         public async Task ButtonStartStreaming_click()
         {  
             // First set local Screen Resolution:
-            string localResolution = null;
             if (AvailableLocalScreenResolutions.Count > 0 && 
                             SelectedLocalScreenResolutionIndex != -1 )
             {
-                localResolution = 
+                string localResolution = 
                         AvailableLocalScreenResolutions[SelectedLocalScreenResolutionIndex];
                 try
                 {
-                    _wdcServiceProvider.SetLocalScreenResolution(localResolution);
+                    screenResolutionService.SetScreenResolution(localResolution);
                     StatusText += $"Successfully set local screen-resolution to {localResolution}\n";
                     CurrentLocalScreenResolution = localResolution;
                 }
@@ -360,7 +365,7 @@ namespace WirelessDisplayClient.ViewModels
                         AvailableRemoteScreenResolutions[SelectedRemoteScreenResolutionIndex];
                 try
                 {
-                    await _wdcServiceProvider.SetRemoteScreenResolution(remoteResolution);
+                    await restApiClientService.SetRemoteScreenResolution(remoteResolution);
                     StatusText += $"Successfully set remote screen-resolution to {remoteResolution}\n";
                     CurrentRemoteScreenResolution = remoteResolution;
                 }
@@ -372,14 +377,16 @@ namespace WirelessDisplayClient.ViewModels
             }
 
             // Then stop eventually still ongoing streaming
-            try {
-                await _wdcServiceProvider.StopStreaming();
+            try 
+            {
+                await restApiClientService.StopRemoteStreamingSink();
                 StatusText += "Sucessfully stopped eventually still running streaming.\n";
             }
             catch (WDCServiceException e)
             {
                 StatusText += $"{e.Message}\n";
-                StatusText += "ERROR: Could not stop eventually still running streaming.\n"; 
+                StatusText += "ERROR: Could not stop eventually still running remote streaming-sink.\n"; 
+                // Don't bail out here, just try to start the reomte streamin-sink first.
             }
 
             // Check if VNC or FFmpeg is desired:
@@ -394,23 +401,50 @@ namespace WirelessDisplayClient.ViewModels
             }
             else
             {
+                logger?.LogCritical("BUG: Neither VNC nor FFmpeg selected. This should not be possible.");
                 throw new Exception("BUG: Neither VNC nor FFmpeg selected. This should not be possible.");
             }  
 
-            // start selected streaming
-            try {
-                await _wdcServiceProvider.StartStreaming( streamType,
-                                    PortNo,
-                                    senderResolution : localResolution,
-                                    receiverResolution : remoteResolution);
-                StatusText += $"Successfully started {streamType.ToString()}-streaming to {_wdcServiceProvider.LastKnownRemoteIP}:{PortNo}\n";
+            // Then start selected streaming-sink on remote computer, bailing out if unsuccessfull
+            try
+            {
+                await restApiClientService.StartRemoteStreamingSink(streamType, PortNo);
+                StatusText += $"Successfully started remote streaming-sink of type {streamType.ToString()} on {restApiClientService.LastKnownRemoteIP}:{PortNo}\n";
             }
-            catch (Exception e)
+            catch (WDCServiceException e)
             {
                 StatusText += $"{e.Message}\n";
-                StatusText += $"ERROR: Could not start {streamType.ToString()}-streaming to {_wdcServiceProvider.LastKnownRemoteIP}:{PortNo}\n";
-                return; // bail out
-            }       
+                StatusText += "ERROR: Could not start remote streaming-sink.\n"; 
+                // Bail out
+                return;
+            }
+
+            // Then start streaming-source on local computer, bailing out if unsuccessfull
+            try
+            {
+                streamSourceService.StartLocalStreamSource( streamType,
+                                                            IpAddress,
+                                                            PortNo,
+                                                            streamResolution : remoteResolution );
+                StatusText += $"Successfully started local streaming-source of type {streamType.ToString()}\n";
+            }
+            catch (WDCServiceException e)
+            {
+                StatusText += $"{e.Message}\n";
+                StatusText += "ERROR: Could not start local streaming-source.\n";
+                try
+                {
+                    await restApiClientService.StopRemoteStreamingSink();
+                     StatusText += $"Stopped remote streaming-sink again.\n";
+                } 
+                catch(WDCServiceException e2)
+                {
+                    StatusText += $"{e2.Message}\n";
+                    StatusText += "ERROR: Could not stop remote sink again.\n";
+                    return; // Bail out
+                }
+                return; // Bail out
+            }
 
             // Last, preselect initial screen-resolutions
             SelectedLocalScreenResolutionIndex = 
@@ -432,17 +466,24 @@ namespace WirelessDisplayClient.ViewModels
         //     React on Stop-Streaming-Button
         public async Task ButtonStopStreaming_click()
         {
-            // First stop streaming
+            // First stop local streaming-source
+            // Only the underlying call to Process.kill() could throw an exception,
+            // but this should never occur.
+            streamSourceService.StopLocalStreaming();
+            StatusText += "Successfully stopped local streaming-source.\n";
+            
+            // Then stop remote streaming-sink
             try 
             {
-                await _wdcServiceProvider.StopStreaming();
-                StatusText += "Successfully stopped streaming\n";
+                await restApiClientService.StopRemoteStreamingSink();
+                StatusText += "Successfully stopped remote streaming-sink.\n";
             }
             catch (WDCServiceException e)
             {
                 StatusText += $"{e.Message}\n";
                 StatusText = "ERROR: Could not stop streaming.\n";
-                return;
+                // Don't bail out, since local streaming-source has already been
+                // stopped. But this leaves the remote streaming-sink running!
             }
 
             // Then set local Screen Resolution:
@@ -452,7 +493,7 @@ namespace WirelessDisplayClient.ViewModels
                 string localResolution = 
                         AvailableLocalScreenResolutions[SelectedLocalScreenResolutionIndex];
                 try {
-                    _wdcServiceProvider.SetLocalScreenResolution(localResolution);
+                    screenResolutionService.SetScreenResolution(localResolution);
                     StatusText += $"Successfully set local screen-resolution to {localResolution}\n";
                     CurrentLocalScreenResolution = localResolution;
                 }
@@ -462,6 +503,7 @@ namespace WirelessDisplayClient.ViewModels
                     StatusText += $"WARNING: Could not set local screen-resolution to {localResolution}\n";
                 }
             }
+
             // Then set remote Screen Resolution:
             if (AvailableRemoteScreenResolutions.Count > 0  &&
                             SelectedRemoteScreenResolutionIndex != -1 )
@@ -469,8 +511,8 @@ namespace WirelessDisplayClient.ViewModels
                 string remoteResolution = 
                         AvailableRemoteScreenResolutions[SelectedRemoteScreenResolutionIndex];
                 try {
-                    await _wdcServiceProvider.SetRemoteScreenResolution(remoteResolution);
-                    StatusText += $"Successfully set remote screen-resolution to {remoteResolution}\n";
+                    await restApiClientService.SetRemoteScreenResolution(remoteResolution);
+                    StatusText += $"Successfully tried to set remote screen-resolution to {remoteResolution}\n";
                     CurrentRemoteScreenResolution = remoteResolution;
                 }
                 catch (WDCServiceException e)
@@ -548,7 +590,7 @@ namespace WirelessDisplayClient.ViewModels
             // Replace default value
             if (desiredWidth == -1)
             {
-                desiredWidth = _desiredWidth;
+                desiredWidth = preferredScreenWidth;
             }
 
             int index = 0;
@@ -584,6 +626,8 @@ namespace WirelessDisplayClient.ViewModels
         private int indexOfResolution(IEnumerable<string> resolutions,
                                        string resolutionToSelect)
         {
+            // Forgot LINQ, so search manually.
+
             int index = 0;
 
             foreach (string res in resolutions)

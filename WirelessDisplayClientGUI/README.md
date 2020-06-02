@@ -25,69 +25,88 @@ dotnet new dotnet new avalonia.mvvm
 
 From the created files, the following ones are important:
 
-- `Porgram.cs`: This file was not modified. It starts the Avalonia-engine. This
+- [Porgram.cs]: This file was not modified. It starts the Avalonia-engine. This
   engine creates and uses an instance of the `App`-class.
-- `App.xaml` and `App.xaml.cs`: Together they define the `App-class`.
-- `Views/MainWindow.xaml` and `Views/MainWindow.xaml.cs`: Toghether the define 
+- [App.xaml] and [App.xaml.cs]: Together they define the `App-class`.
+- [Views/MainWindow.xaml] and [Views/MainWindow.xaml.cs]: Toghether the define 
   the `MainWindow`-class, which is the 'view' for the GUI-Main-Window. The file
-  `Views/MainWindow.xaml.cs` is called 'code-behind' for the 'view'.
-- `ViewModels/MainWindowViewModel.cs`: The so called 'viewmodel' for the view.
+  [Views/MainWindow.xaml.cs] is called 'code-behind' for the 'view'.
+- [ViewModels/MainWindowViewModel.cs]: The so called 'viewmodel' for the view.
   See [Views and ViewModels](http://avaloniaui.net/docs/quickstart/mvvm#views-and-viewmodels)
   for a good explanation for the idea behind 'views' and  their 'viewmodel', 
   and so called 'bindings' between them.
-- The `Models`-folder is not used in this project, since there is no data to
+- The [Models]-folder is not used in this project, since there is no data to
   be managed.
 
 The following files were created:
 
-- `App.config`: An xml-File containting key-value-pairs, which can easily be 
+- [App.config]: An xml-File containting key-value-pairs, which can easily be 
   read by `System.Configuration.ConfigurationManager.AppSettings`. This is 
-  done in `App.xaml.cs`.
-- The folder `Services` containing:
-  * `IWDCServciceProvider.cs`
-  * `WDCSercviceProviderGeneric.cs`
-  * `WDCSercviceException.cs`
+  done in [App.xaml.cs].
+- The folder [WDCServices] containing:
+  * [WDCSercviceCommon.cs]
+  * [IRestApiClientService.cs] and [RestApiClientService.cs] 
+  * [IStreamSourceService.cs] and [StreamSourceService.cs] 
+  * [ISreenResolutionService.cs] and [SreenResolutionService.cs]
 
-## Service
+## Services
 
 The background-work is performed by the classes defined in the folder 
-[Services].
+[WDCServicesServices].
 
-`WDCSercviceException` is the type of exceptions thrown by the classes in 
-the [Services]-folder.
+In the file [WDCSercviceCommon.cs] are two things used more than one class:
 
-The provided services are declared as methods and properties of the interface 
-`IWDCServciceProvider`:
+- `WDCSercviceException` is the type of exceptions thrown by the classes in 
+  the [WDCServicesServices]-folder.
+- `StreamType` is ab enumeration with the possible values `StreamType.None`,
+  `StreamType.VNC` and `StreamType.FFmpeg`. 
 
-- Services to establish a connection to the remote computer (projecting 
-  computer), that is running the WirelessDisplayServer.
+Each class offers its relevant properties and methods via a corresponding
+interface, that the class implements. For example, the class 
+`RestApiClientService` implements the interface `IRestApiClientService`.
+Alle Files outside [WDCServicesServices] use only the interfaces.
+
+The class `RestApiClientService` provides:
+
+- Methods and properties to establish a connection to the remote computer 
+  (projecting computer), that is running the WirelessDisplayServer.
 - Methods to get and set screen-resolution of the remote computer
-- Methods to start and stop VNC- or ffmpeg-streaming.
+- Methods to start and stop the remote streaming-sink (VNC-viewer or ffplay).
 
-There is only one concrete class called `WDCSercviceProviderGeneric` that 
-implements `IWDCServciceProvider`.
+The class `StreamSourceService` provides methods and properties to start
+and stop the local streaming-source (either VNC-Server in reverse-connection).
 
-The `WDCSercviceProviderGeneric`-class does not start ffmpeg or a VNC-server
-directly, but it starts a process wich executes a script. On Linux the script 
-is a shell-script started with bash on Linux, a batch-file started with 
-cmd.exe on Windows, and ??? TODO ??? on macOS. The command-name "bash" or 
-"cmd.exe" and the file-paths to the scripts to execute are passed to the 
-constructor of `WDCSercviceProviderGeneric`. The file-paths to the scripts
-and a template for the comman-line-arguments are also passed this way.
+The class `SreenResolutionService` provides methods and properties to
+query and manipulate the screen-resolution of the local computer.
 
-One instance of a concrete class implementing `IWDCServciceProvider` (for now
-only `WDCSercviceProviderGeneric`) is instantiated in [App.xaml.cs] and
-"injected" in the constructor of the `MainWindowViewModel`. The
-`MainWindowViewModel`-instance uses the services provided by the concrete
-`IWDCServciceProvider`-instance.
+The `StreamSourceService`-class and the `SreenResolutionService`-class do
+not start ffmpeg, VNC-server or a program to manipulate the screen-resolution
+directly, but they start a process wich executes a script. On Linux the 
+scripts are shell-script started with bash. On Windows batch-files started with 
+cmd.exe start the external programs, and on macOS ??? TODO ???. Strings for the
+command-name "bash" or "cmd.exe" and the file-paths to the scripts to execute 
+are injected to the constructors of `StreamSourceService` and 
+`SreenResolutionService`. Also templates for the command-line-arguments that
+have to be passed to the scripts are injected with constructor-injection.
+
+The scripts for each operating-system can be changed to needs of each user,
+without the need to change the C#-code.
+
+In [App.xaml.cs] one instance of each service-providing-class 
+(`RestApiClientService`, `StreamSourceService` and `SreenResolutionService`) 
+is created. These instances are dependency-injected into the 
+`MainWindowViewModel` via the constructor of `MainWindowViewModel`.
+(The `MainWindowViewModel`-instance is also created in [App.xaml.cs]).
+The `MainWindowViewModel`-instance then uses the services provided by 
+service-providing-classes to perform actions started by the user.
 
 ## Configuration with App.config and startup-code
 
 Dotnet core provides a simple configuration-mechanism using an XML-file called
 [App.config]. In the section `<appsettings>` key-value-pairs can be defined.
 The `App`-class defined in [App.xaml.cs] contains the startup-code. (The file 
-[App.xaml] has not been modified). Here the configuration from [App.config`]
-is read into the variable `config` with the statement :
+[App.xaml] has not been modified). In [App.xaml.cs] the configuration from 
+[App.config`] is read into the variable `config` with the statement :
 
 ```
 NameValueCollection config = ConfigurationManager.AppSettings;
@@ -98,33 +117,35 @@ NameValueCollection config = ConfigurationManager.AppSettings;
 - The command-name to execute a shell ("bash", "cmd.exe")
 - The filepath of the scripts that start ffmpeg or a VNC-Server on the local
   computer.
-- Template-strings for command-line arguments.
-- The preferred screen-resolution for local and remote computer
+- Template-strings for command-line arguments for the scripts.
+- The preferred screen-resolution for local and remote computer during 
+  streaming.
 
 There are configuration-strings for Linux, Windows and macOS. In 
 [App.xaml.cs] the correct operating-system is found with 
 `RuntimeInformation.IsOSPlatform(...)`-tests. Then the corresponding
 configuration-strings are copied into a new `NameValueCollection`, which is 
-passed to the constructor of `WDCSercviceProviderGeneric`.
+passed to the constructor of the service-provinding classes (see above).
 
 Note, that it is not necessary to change [App.config]. To change
 the way, how ffmpeg or a VNC-Server are started, the corresponding
 shell- or batch-sripts can be changed. The only reason to change [App.config]
 is to change the preferred screen-reolsution of the local and the remote
-computer.
+computer during streaming.
 
 Also note, that after publishing the program with `dotnet publish` the 
 XML-configuration is not called [App.config] anymore, but it is called
-[WirelessDisplayClient.exe.config]. But this file can still be modified
+[WirelessDisplayClient.exe.config]. But this file could still be modified
 without the need to recompile or publish the program again.
 
-Sumarrized, the custom startup-code in [App.xaml.cs] just creates an
-instance of `WDCSercviceProviderGeneric` and passes the correct
-configuration-key-value-pairs to its constructor. The startup-code also
-creates an instance of `MainWindowViewModel`, and a reference to the 
-`WDCSercviceProviderGeneric`-instance is passed to the constructor of
-the `MainWindowViewModel`, for the `MainWindowViewModel` to be able to use
-the services provided by `WDCSercviceProviderGeneric`.
+Sumarrized, the custom startup-code in [App.xaml.cs] just creates 
+instances of the service-providing classes (`RestApiClientService`, 
+`StreamSourceService` and `SreenResolutionService`) and passes the correct
+configuration-key-value-pairs to their constructors. The startup-code also
+creates an instance of `MainWindowViewModel`, and references to the 
+instances of the service-providing-classes are passed to the constructor of
+the `MainWindowViewModel`. The `MainWindowViewModel` is therefore able to use
+the services provided by the service-providing-classes.
 
 ## Window-elements and MVMM-pattern:
 
@@ -189,7 +210,6 @@ established by:
 - Using a `ViewLocater`-class and the fact, that `MainWindowViewModel` must
   inherit from `ViewModelBase`. The files `ViewLocater.cs` and 
   `ViewModelBase.cs` have not been modified.
-
 
 ## Shutdown-code
 
