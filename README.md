@@ -54,15 +54,23 @@ within the folder WirelessDispalyClientGUI, where Program.cs is):
 
 ```
 mkdir ..\WirelessDisplayClientGUI_executable 
-dotnet publish -c Release -o ..\WirelessDisplayClientGUI_executable -r linux-x64 --self-contained
+dotnet publish -c Release -o ..\WirelessDisplayClientGUI_executable -r linux-x64 --self-contained false
 ```
 
 On Windows, replace `linux-x64` with `win-x64` and on macOS with `osx-x64`.
 
-The above command builds a "stand-alone"-Version of the program, which could 
-be copied to another computer. If dotnet Core Version 3 is installed on the
-presentation-computer, then omit the parameters `-r linux-x64` and 
-`--self-contained`.
+The above command builds a "runtime-dependent"-Version of the program, which
+only runs on the specified platform. The "runtime-dependet" version also
+requires, that dotnet core (version 3.1) is instaled on the computer.
+
+A "runtime-dependent" version, that runs on every platform (operating-system)
+can be built, by omitting `-r ...-x64`. Of course, the size of the program
+is much larger.
+
+A "self-containted" version is built, by setting `--self-contained true`. Such
+a version also contains the used dotnet core framework, so on the 
+target-computer no dotnet-core-framework needs to be installed. Self-contained
+builds only work for the given platform, and consume most disk-size.
 
 After publishing, the complete program consists of the three folders:
 
@@ -71,4 +79,4 @@ After publishing, the complete program consists of the three folders:
 - [WirelessDisplayClientGUI_executable]
 
 Inside [WirelessDisplayClientGUI_executable] is the executable 
-[WirelessDisplayClientGUI.exe].
+[WirelessDisplayClientGUI.exe] or [WirelessDisplayClientGUI].
